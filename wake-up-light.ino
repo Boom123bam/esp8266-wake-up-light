@@ -1,4 +1,5 @@
 #include "time2.h"
+#include <ArduinoJson.h>
 #include <ESP8266WebServer.h>
 #include <ESP8266WiFi.h>
 #include <NTPClient.h>
@@ -67,17 +68,43 @@ void updateLEDs();
 void updateCurrentOrNextWaveIndex();
 
 void handlePost() {
-  if (server.hasArg("plain")) {
-    String plain = server.arg("plain");
-    Serial.println("Received POST data: " + plain);
-    server.send(200, "text/plain", "POST data received: " + plain);
-  } else {
-    server.send(400, "text/plain", "Bad Request");
-  }
+    if (server.hasArg("plain")) {
+        // Get the JSON payload from the request
+        String input = server.arg("plain");
+
+        // String input;
+
+        JsonDocument doc;
+
+        DeserializationError error = deserializeJson(doc, input);
+
+        if (error) {
+            Serial.print("deserializeJson() failed: ");
+            Serial.println(error.c_str());
+            return;
+        }
+
+        for (JsonObject item : doc.as<JsonArray>()) {
+
+            int startTime_hour = item["startTime"]["hour"];     // 15, 17, 19
+            int startTime_minute = item["startTime"]["minute"]; // 30, 30, 30
+
+            int endTime_hour = item["endTime"]["hour"];     // 15, 17, 19
+            int endTime_minute = item["endTime"]["minute"]; // 50, 35, 35
+
+            int inDuration = item["inDuration"];         // 20, 2, 2
+            int fullBrightness = item["fullBrightness"]; // 100, 100, 100
+            Serial.printf("sh: %d, sm: %d, eh: %d, em: %d, d: %d, b: %d\n",
+                          startTime_hour, startTime_minute, endTime_hour,
+                          endTime_minute, inDuration, fullBrightness);
+        }
+
+        server.send(200, "text/plain", "POST data received and parsed");
+    } else {
+        server.send(400, "text/plain", "Bad Request");
+    }
 }
-void handleGet() {
-  server.send(200, "text/plain", "getty");
-}
+void handleGet() { server.send(200, "text/plain", "getty"); }
 
 void setup() {
     WiFi.mode(WIFI_STA);
