@@ -1,18 +1,19 @@
 #ifndef TIME_H
 #define TIME_H
+#include "Arduino.h"
 
 struct time {
-    int hour;
-    int minute;
-    // int day;
+    byte hour;
+    byte minute;
 };
 
 struct wave {
     struct time startTime;
     struct time endTime;
-    int inDuration;
-    int fullBrightness;
-    // color
+    byte inDuration;
+    byte red;
+    byte green;
+    byte blue;
 };
 
 int timeDiff(struct time *a, struct time *b);

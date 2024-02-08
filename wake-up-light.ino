@@ -33,28 +33,37 @@ struct wave waves[] = {
     {.startTime = {.hour = 15, .minute = 30},
      .endTime = {.hour = 15, .minute = 50},
      .inDuration = 20,
-     .fullBrightness = 100},
+     .red = 200,
+     .green = 100,
+     .blue = 50},
 
     {.startTime = {.hour = 17, .minute = 30},
      .endTime = {.hour = 17, .minute = 35},
      .inDuration = 2,
-     .fullBrightness = 100},
+     .red = 200,
+     .green = 100,
+     .blue = 50},
 
     {.startTime = {.hour = 19, .minute = 30},
      .endTime = {.hour = 19, .minute = 35},
      .inDuration = 2,
-     .fullBrightness = 100},
+     .red = 200,
+     .green = 100,
+     .blue = 50},
 
     {.startTime = {.hour = 21, .minute = 30},
      .endTime = {.hour = 21, .minute = 45},
      .inDuration = 5,
-     .fullBrightness = 100},
+     .red = 200,
+     .green = 100,
+     .blue = 50},
 
     {.startTime = {.hour = 23, .minute = 30},
      .endTime = {.hour = 23, .minute = 45},
      .inDuration = 5,
-     .fullBrightness = 100},
-
+     .red = 200,
+     .green = 100,
+     .blue = 50},
 };
 
 int numWaves;
@@ -86,17 +95,18 @@ void handlePost() {
 
         for (JsonObject item : doc.as<JsonArray>()) {
 
-            int startTime_hour = item["startTime"]["hour"];     // 15, 17, 19
-            int startTime_minute = item["startTime"]["minute"]; // 30, 30, 30
+            const char *name = item["name"]; // "tes", "yessir", "b"
+            const char *color =
+                item["color"]; // "#ff3368", "#9affb8", "#ffffff"
+            int startHour = item["startHour"];     // 10, 11, 12
+            int startMinute = item["startMinute"]; // 0, 0, 0
+            int endHour = item["endHour"];         // 11, 12, 12
+            int endMinute = item["endMinute"];     // 0, 0, 5
+            int inDuration = item["inDuration"];   // 15, 30, 1
 
-            int endTime_hour = item["endTime"]["hour"];     // 15, 17, 19
-            int endTime_minute = item["endTime"]["minute"]; // 50, 35, 35
-
-            int inDuration = item["inDuration"];         // 20, 2, 2
-            int fullBrightness = item["fullBrightness"]; // 100, 100, 100
-            Serial.printf("sh: %d, sm: %d, eh: %d, em: %d, d: %d, b: %d\n",
-                          startTime_hour, startTime_minute, endTime_hour,
-                          endTime_minute, inDuration, fullBrightness);
+            Serial.printf(
+                "n: %s, c: %s, sh: %d, sm: %d, eh: %d, em: %d, d: %d\n", name,
+                color, startHour, startMinute, endHour, endMinute, inDuration);
         }
 
         server.send(200, "text/plain", "POST data received and parsed");
@@ -128,9 +138,10 @@ void setup() {
 
     Serial.begin(9600);
 
-    Serial.print("Open http://");
-    Serial.print(WiFi.localIP());
-    Serial.println("/ in your browser to see it working");
+    Serial.println(WiFi.localIP());
+    Serial.println(sizeof(wave));
+  
+
 }
 
 void loop() {

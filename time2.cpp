@@ -29,39 +29,39 @@ int findNextWaveIndex(struct wave waves[], int totalWaves,
     return waveIndex;
 }
 
-int main() {
-    struct time currentTime = {.hour = 18, .minute = 00};
+// int main() {
+//     struct time currentTime = {.hour = 18, .minute = 00};
 
-    struct wave waves[] = {
-        {.startTime = {.hour = 15, .minute = 30},
-         .endTime = {.hour = 15, .minute = 50},
-         .inDuration = 20,
-         .fullBrightness = 100},
+//     struct wave waves[] = {
+//         {.startTime = {.hour = 15, .minute = 30},
+//          .endTime = {.hour = 15, .minute = 50},
+//          .inDuration = 20,
+//          .fullBrightness = 100},
 
-        {.startTime = {.hour = 17, .minute = 30},
-         .endTime = {.hour = 17, .minute = 35},
-         .inDuration = 2,
-         .fullBrightness = 100},
+//         {.startTime = {.hour = 17, .minute = 30},
+//          .endTime = {.hour = 17, .minute = 35},
+//          .inDuration = 2,
+//          .fullBrightness = 100},
 
-        {.startTime = {.hour = 19, .minute = 30},
-         .endTime = {.hour = 19, .minute = 35},
-         .inDuration = 2,
-         .fullBrightness = 100},
+//         {.startTime = {.hour = 19, .minute = 30},
+//          .endTime = {.hour = 19, .minute = 35},
+//          .inDuration = 2,
+//          .fullBrightness = 100},
 
-        {.startTime = {.hour = 21, .minute = 30},
-         .endTime = {.hour = 21, .minute = 45},
-         .inDuration = 5,
-         .fullBrightness = 100},
+//         {.startTime = {.hour = 21, .minute = 30},
+//          .endTime = {.hour = 21, .minute = 45},
+//          .inDuration = 5,
+//          .fullBrightness = 100},
 
-        {.startTime = {.hour = 23, .minute = 30},
-         .endTime = {.hour = 23, .minute = 45},
-         .inDuration = 5,
-         .fullBrightness = 100},
+//         {.startTime = {.hour = 23, .minute = 30},
+//          .endTime = {.hour = 23, .minute = 45},
+//          .inDuration = 5,
+//          .fullBrightness = 100},
 
-    };
+//     };
 
-    printf("n: %d\n", findNextWaveIndex(waves, sizeof(waves) / sizeof(waves[0]),
-                                        &currentTime));
+//     printf("n: %d\n", findNextWaveIndex(waves, sizeof(waves) / sizeof(waves[0]),
+//                                         &currentTime));
 
-    return 0;
-}
+//     return 0;
+// }
