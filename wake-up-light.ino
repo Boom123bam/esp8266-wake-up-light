@@ -21,6 +21,8 @@ char daysOfTheWeek[7][12] = {"Sunday",   "Monday", "Tuesday", "Wednesday",
 #define LOOKBACKRANGE                                                          \
     20000 // the range behind the current millis in which to look for events
 
+#define MAX_WAVES 16 // max num of waves
+
 unsigned long nextTickMillis = MILLISINMIN;
 
 // Define NTP Client to get time
@@ -29,44 +31,9 @@ NTPClient timeClient(ntpUDP, "pool.ntp.org", utcOffsetInSeconds);
 
 ESP8266WebServer server(80);
 
-struct wave waves[] = {
-    {.startTime = {.hour = 15, .minute = 30},
-     .endTime = {.hour = 15, .minute = 50},
-     .inDuration = 20,
-     .red = 200,
-     .green = 100,
-     .blue = 50},
+struct wave waves[MAX_WAVES];
 
-    {.startTime = {.hour = 17, .minute = 30},
-     .endTime = {.hour = 17, .minute = 35},
-     .inDuration = 2,
-     .red = 200,
-     .green = 100,
-     .blue = 50},
-
-    {.startTime = {.hour = 19, .minute = 30},
-     .endTime = {.hour = 19, .minute = 35},
-     .inDuration = 2,
-     .red = 200,
-     .green = 100,
-     .blue = 50},
-
-    {.startTime = {.hour = 21, .minute = 30},
-     .endTime = {.hour = 21, .minute = 45},
-     .inDuration = 5,
-     .red = 200,
-     .green = 100,
-     .blue = 50},
-
-    {.startTime = {.hour = 23, .minute = 30},
-     .endTime = {.hour = 23, .minute = 45},
-     .inDuration = 5,
-     .red = 200,
-     .green = 100,
-     .blue = 50},
-};
-
-int numWaves;
+byte numWaves = 0;
 
 struct time currentTime;
 
@@ -117,6 +84,9 @@ void handlePost() {
 void handleGet() { server.send(200, "text/plain", "getty"); }
 
 void setup() {
+    Serial.begin(9600);
+
+    // set up wifi
     WiFi.mode(WIFI_STA);
     WiFi.begin(ssid, password);
 
@@ -125,23 +95,18 @@ void setup() {
         Serial.print(".");
     }
 
+    // set up server
     server.on("/", HTTP_GET, handleGet);
     server.on("/", HTTP_POST, handlePost);
     server.begin();
+    Serial.print("IP: ");
+    Serial.println(WiFi.localIP());
 
+    // set up time
     timeClient.begin();
     fetchNewTime();
     int secsToNextTick = 60 - timeClient.getSeconds();
     nextTickMillis = secsToNextTick * 1000;
-
-    numWaves = sizeof(waves) / sizeof(waves[0]);
-
-    Serial.begin(9600);
-
-    Serial.println(WiFi.localIP());
-    Serial.println(sizeof(wave));
-  
-
 }
 
 void loop() {
