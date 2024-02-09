@@ -164,12 +164,7 @@ void printWaves() {
 }
 
 void tick() {
-    unsigned long currentMillis = millis();
-    if (currentMillis + TICKINTERVAL < currentMillis)
-        // warped
-        return;
-    if (nextTickMillis > currentMillis)
-        return;
+    if (!isPassedMillis(nextTickMillis)) return;
 
     // update intreval
     nextTickMillis += TICKINTERVAL;
@@ -224,4 +219,14 @@ void updateLEDs() {
     }
 
     // TODO exit wave
+}
+
+bool isPassedMillis(unsigned long targetMillis) {
+  unsigned long currentMillis = millis();
+    if (currentMillis + TICKINTERVAL < currentMillis)
+        // warped
+        return false;
+    if (targetMillis > currentMillis)
+        return false;
+    return true;
 }
