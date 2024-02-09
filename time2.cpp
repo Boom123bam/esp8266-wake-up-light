@@ -29,11 +29,30 @@ int findNextWaveIndex(struct wave waves[], int totalWaves,
     return waveIndex;
 }
 
+int findCurrentWaveIndex(struct wave waves[], int totalWaves,
+                         struct time *currentTimep) {
+    // -1 if not in a wave
+    struct wave *wavep;
+
+    for (byte i = 0; i < totalWaves; i++) {
+        wavep = &waves[i];
+        if (timeDiff(&wavep->startTime, currentTimep) < 0 &&
+            timeDiff(&wavep->endTime, currentTimep) > 0) {
+            return i;
+        }
+    }
+    return -1;
+}
+
 String formatWave(struct wave *wavePtr) {
-    String waveInfo = "Start Time: " + String(wavePtr->startTime.hour) + ":" + String(wavePtr->startTime.minute) +
-                      " - End Time: " + String(wavePtr->endTime.hour) + ":" + String(wavePtr->endTime.minute) +
-                      ", Duration: " + String(wavePtr->inDuration) + " minutes, Color: (" +
-                      String(wavePtr->red) + "," + String(wavePtr->green) + "," + String(wavePtr->blue) + ")";
+    String waveInfo = "Start Time: " + String(wavePtr->startTime.hour) + ":"
+    + String(wavePtr->startTime.minute) +
+                      " - End Time: " + String(wavePtr->endTime.hour) + ":" +
+                      String(wavePtr->endTime.minute) +
+                      ", Duration: " + String(wavePtr->inDuration) + "
+                      minutes, Color: (" + String(wavePtr->red) + "," +
+                      String(wavePtr->green) + "," + String(wavePtr->blue) +
+                      ")";
     return waveInfo;
 }
 
@@ -44,32 +63,32 @@ String formatWave(struct wave *wavePtr) {
 //         {.startTime = {.hour = 15, .minute = 30},
 //          .endTime = {.hour = 15, .minute = 50},
 //          .inDuration = 20,
-//          .fullBrightness = 100},
+//          .red = 200,
+//          .green = 100,
+//          .blue = 50},
 
 //         {.startTime = {.hour = 17, .minute = 30},
 //          .endTime = {.hour = 17, .minute = 35},
 //          .inDuration = 2,
-//          .fullBrightness = 100},
+//          .red = 200,
+//          .green = 100,
+//          .blue = 50},
 
 //         {.startTime = {.hour = 19, .minute = 30},
 //          .endTime = {.hour = 19, .minute = 35},
 //          .inDuration = 2,
-//          .fullBrightness = 100},
-
-//         {.startTime = {.hour = 21, .minute = 30},
-//          .endTime = {.hour = 21, .minute = 45},
-//          .inDuration = 5,
-//          .fullBrightness = 100},
-
-//         {.startTime = {.hour = 23, .minute = 30},
-//          .endTime = {.hour = 23, .minute = 45},
-//          .inDuration = 5,
-//          .fullBrightness = 100},
-
+//          .red = 200,
+//          .green = 100,
+//          .blue = 50},
 //     };
 
-//     printf("n: %d\n", findNextWaveIndex(waves, sizeof(waves) / sizeof(waves[0]),
+//     printf("n: %d\n", findNextWaveIndex(waves, sizeof(waves) /
+//     sizeof(waves[0]),
 //                                         &currentTime));
+//     printf("n: %d\n",
+//            findCurrentWaveIndex(waves, sizeof(waves) / sizeof(waves[0]),
+//                                 &currentTime));
+//     ;
 
 //     return 0;
 // }
