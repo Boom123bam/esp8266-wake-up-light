@@ -63,19 +63,20 @@ void handlePost() {
 
         byte i = 0;
         for (JsonObject item : doc.as<JsonArray>()) {
-            const char *name = item["name"]; // "tes", "yessir", "b"
-            const char *color =
-                item["color"]; // "#ff3368", "#9affb8", "#ffffff"
-            int startHour = item["startHour"];     // 10, 11, 12
-            int startMinute = item["startMinute"]; // 0, 0, 0
-            int endHour = item["endHour"];         // 11, 12, 12
-            int endMinute = item["endMinute"];     // 0, 0, 5
-            int inDuration = item["inDuration"];   // 15, 30, 1
+          const char* name = item["name"];
 
-            Serial.printf(
-                "n: %s, c: %s, sh: %d, sm: %d, eh: %d, em: %d, d: %d\n", name,
-                color, startHour, startMinute, endHour, endMinute, inDuration);
-            i++;
+          JsonObject color = item["color"];
+          byte color_r = color["r"];
+          byte color_g = color["g"];
+          byte color_b = color["b"];
+          byte color_a = color["a"];
+
+          byte startHour = item["startHour"];
+          byte startMinute = item["startMinute"];
+          byte endHour = item["endHour"];
+          byte endMinute = item["endMinute"];
+          byte inDuration = item["inDuration"];
+          i++;
         }
 
         server.send(200, "text/plain", "POST data received and parsed");
