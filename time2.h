@@ -21,5 +21,7 @@ char *formatTime(char s[], struct time *t);
 void goNextMin(struct time *t);
 int findNextWaveIndex(struct wave waves[], int totalWaves,
                       struct time *currentTimep);
+String formatWave(struct wave *wavePtr);
+
 
 #endif

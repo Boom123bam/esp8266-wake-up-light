@@ -29,6 +29,14 @@ int findNextWaveIndex(struct wave waves[], int totalWaves,
     return waveIndex;
 }
 
+String formatWave(struct wave *wavePtr) {
+    String waveInfo = "Start Time: " + String(wavePtr->startTime.hour) + ":" + String(wavePtr->startTime.minute) +
+                      " - End Time: " + String(wavePtr->endTime.hour) + ":" + String(wavePtr->endTime.minute) +
+                      ", Duration: " + String(wavePtr->inDuration) + " minutes, Color: (" +
+                      String(wavePtr->red) + "," + String(wavePtr->green) + "," + String(wavePtr->blue) + ")";
+    return waveInfo;
+}
+
 // int main() {
 //     struct time currentTime = {.hour = 18, .minute = 00};
 
