@@ -45,6 +45,7 @@ void updateLEDs();
 void updateCurrentOrNextWaveIndex();
 
 void handlePost() {
+    Serial.println("Got post request!");
     if (server.hasArg("plain")) {
         // Get the JSON payload from the request
         String input = server.arg("plain");
@@ -69,14 +70,31 @@ void handlePost() {
           byte color_r = color["r"];
           byte color_g = color["g"];
           byte color_b = color["b"];
-          byte color_a = color["a"];
 
           byte startHour = item["startHour"];
           byte startMinute = item["startMinute"];
           byte endHour = item["endHour"];
           byte endMinute = item["endMinute"];
           byte inDuration = item["inDuration"];
+
+          waves[i] = wave {
+            .startTime = {.hour = startHour, .minute = startMinute},
+            .endTime = {.hour = endHour, .minute = endMinute},
+            .inDuration = inDuration,
+            .red = color_r,
+            .green = color_g,
+            .blue = color_b,
+          };
+
           i++;
+        }
+        numWaves = i;
+
+        Serial.println("\nRecieved waves:");
+        for (int j = 0; j < numWaves; j++) {
+            Serial.print("Wave ");
+            Serial.println(j + 1);
+            Serial.println(formatWave(&waves[j]));
         }
 
         server.send(200, "text/plain", "POST data received and parsed");
@@ -97,6 +115,7 @@ void setup() {
         delay(500);
         Serial.print(".");
     }
+    Serial.println("\n");
 
     // set up server
     server.on("/", HTTP_GET, handleGet);
@@ -120,7 +139,7 @@ void setup() {
 void loop() {
     fetchNewTime();
     tick();
-    printTime(&currentTime);
+    // printTime(&currentTime);
     server.handleClient();
     delay(LOOPINTERVAL);
 
@@ -141,7 +160,7 @@ void tick() {
     // update intreval
     nextTickMillis += TICKINTERVAL;
     // update time
-    Serial.println("tick");
+    // Serial.println("tick");
     goNextMin(&currentTime);
 }
 
