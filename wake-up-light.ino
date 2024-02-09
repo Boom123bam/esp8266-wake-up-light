@@ -90,12 +90,14 @@ void handlePost() {
         }
         numWaves = i;
 
+        // save waves to EEPROM
+        EEPROM.put(0, numWaves);
+        EEPROM.put(1, waves);
+        boolean ok = EEPROM.commit();
+        Serial.println((ok) ? "EEPROM commit OK" : "EEPROM commit failed");
+
         Serial.println("\nRecieved waves:");
-        for (int j = 0; j < numWaves; j++) {
-            Serial.print("Wave ");
-            Serial.println(j + 1);
-            Serial.println(formatWave(&waves[j]));
-        }
+        printWaves();
 
         server.send(200, "text/plain", "POST data received and parsed");
     } else {
@@ -132,8 +134,12 @@ void setup() {
 
     // set up EEPROM
     EEPROM.begin(MAX_WAVES * sizeof(wave) + 1); // + 1 for storing numWaves (byte)
-    EEPROM.put(0, numWaves);
-    EEPROM.put(1, waves);
+
+    // get wave data from EEPROM
+    EEPROM.get(0, numWaves);
+    EEPROM.get(1, waves);
+
+    printWaves();
 }
 
 void loop() {
@@ -147,6 +153,14 @@ void loop() {
     // if it has started
     //   get brightness
     //   update LEDs
+}
+
+void printWaves() {
+    for (int j = 0; j < numWaves; j++) {
+        Serial.print("Wave ");
+        Serial.println(j + 1);
+        Serial.println(formatWave(&waves[j]));
+    }
 }
 
 void tick() {
