@@ -4,6 +4,7 @@
 #include <ESP8266WiFi.h>
 #include <NTPClient.h>
 #include <WiFiUdp.h>
+#include <ESP_EEPROM.h>
 
 const char *ssid = "SkyRabbit";
 const char *password = "20090602";
@@ -60,8 +61,8 @@ void handlePost() {
             return;
         }
 
+        byte i = 0;
         for (JsonObject item : doc.as<JsonArray>()) {
-
             const char *name = item["name"]; // "tes", "yessir", "b"
             const char *color =
                 item["color"]; // "#ff3368", "#9affb8", "#ffffff"
@@ -74,6 +75,7 @@ void handlePost() {
             Serial.printf(
                 "n: %s, c: %s, sh: %d, sm: %d, eh: %d, em: %d, d: %d\n", name,
                 color, startHour, startMinute, endHour, endMinute, inDuration);
+            i++;
         }
 
         server.send(200, "text/plain", "POST data received and parsed");
@@ -81,7 +83,7 @@ void handlePost() {
         server.send(400, "text/plain", "Bad Request");
     }
 }
-void handleGet() { server.send(200, "text/plain", "getty"); }
+void handleGet() { server.send(200, "text/plain", "Hello BOI!"); }
 
 void setup() {
     Serial.begin(9600);
@@ -107,6 +109,11 @@ void setup() {
     fetchNewTime();
     int secsToNextTick = 60 - timeClient.getSeconds();
     nextTickMillis = secsToNextTick * 1000;
+
+    // set up EEPROM
+    EEPROM.begin(MAX_WAVES * sizeof(wave) + 1); // + 1 for storing numWaves (byte)
+    EEPROM.put(0, numWaves);
+    EEPROM.put(1, waves);
 }
 
 void loop() {
