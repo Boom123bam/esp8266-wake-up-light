@@ -1,30 +1,20 @@
-#include "time2.h"
 #include <ArduinoJson.h>
 #include <ESP8266WebServer.h>
 #include <ESP8266WiFi.h>
 #include <NTPClient.h>
 #include <WiFiUdp.h>
 #include <ESP_EEPROM.h>
+#include <TimeLib.h>
+
 
 const char *ssid = "SkyRabbit";
 const char *password = "20090602";
 
-const long utcOffsetInSeconds = 3600;
+// const long utcOffsetInSeconds = 3600;
+const long utcOffsetInSeconds = 0;
 
-char daysOfTheWeek[7][12] = {"Sunday",   "Monday", "Tuesday", "Wednesday",
-                             "Thursday", "Friday", "Saturday"};
-
-#define MILLISINMIN 60000
-// #define MILLISINMIN 6000
-
-#define TICKINTERVAL MILLISINMIN
-#define LOOPINTERVAL 1000
-#define LOOKBACKRANGE                                                          \
-    20000 // the range behind the current millis in which to look for events
-
-#define MAX_WAVES 16 // max num of waves
-
-unsigned long nextTickMillis = MILLISINMIN;
+#define MAX_WAVES 16       // max num of waves
+#define LOOPINTERVAL 1000  // delay between loops
 
 // Define NTP Client to get time
 WiFiUDP ntpUDP;
@@ -32,201 +22,198 @@ NTPClient timeClient(ntpUDP, "pool.ntp.org", utcOffsetInSeconds);
 
 ESP8266WebServer server(80);
 
+struct wave {
+  byte startHour;
+  byte startMinute;
+  byte endHour;
+  byte endMinute;
+  byte inDuration;
+  byte red;
+  byte green;
+  byte blue;
+};
 struct wave waves[MAX_WAVES];
 
 byte numWaves = 0;
 
-struct time currentTime;
-
 void fetchNewTime();
-void tick();
-void printTime(struct time *timep);
 void updateLEDs();
 void updateCurrentOrNextWaveIndex();
+String formatWave(struct wave *wavePtr);
+
 
 void handlePost() {
-    Serial.println("Got post request!");
-    if (server.hasArg("plain")) {
-        // Get the JSON payload from the request
-        String input = server.arg("plain");
+  Serial.println("Got post request!");
+  if (server.hasArg("plain")) {
+    // Get the JSON payload from the request
+    String input = server.arg("plain");
 
-        // String input;
+    // String input;
 
-        JsonDocument doc;
+    JsonDocument doc;
 
-        DeserializationError error = deserializeJson(doc, input);
+    DeserializationError error = deserializeJson(doc, input);
 
-        if (error) {
-            Serial.print("deserializeJson() failed: ");
-            Serial.println(error.c_str());
-            return;
-        }
-
-        byte i = 0;
-        for (JsonObject item : doc.as<JsonArray>()) {
-          const char* name = item["name"];
-
-          JsonObject color = item["color"];
-          byte color_r = color["r"];
-          byte color_g = color["g"];
-          byte color_b = color["b"];
-
-          byte startHour = item["startHour"];
-          byte startMinute = item["startMinute"];
-          byte endHour = item["endHour"];
-          byte endMinute = item["endMinute"];
-          byte inDuration = item["inDuration"];
-
-          waves[i] = wave {
-            .startTime = {.hour = startHour, .minute = startMinute},
-            .endTime = {.hour = endHour, .minute = endMinute},
-            .inDuration = inDuration,
-            .red = color_r,
-            .green = color_g,
-            .blue = color_b,
-          };
-
-          i++;
-        }
-        numWaves = i;
-
-        // save waves to EEPROM
-        EEPROM.put(0, numWaves);
-        EEPROM.put(1, waves);
-        boolean ok = EEPROM.commit();
-        Serial.println((ok) ? "EEPROM commit OK" : "EEPROM commit failed");
-
-        Serial.println("\nRecieved waves:");
-        printWaves();
-
-        server.send(200, "text/plain", "POST data received and parsed");
-    } else {
-        server.send(400, "text/plain", "Bad Request");
+    if (error) {
+      Serial.print("deserializeJson() failed: ");
+      Serial.println(error.c_str());
+      return;
     }
+
+    byte i = 0;
+    for (JsonObject item : doc.as<JsonArray>()) {
+      const char *name = item["name"];
+
+      JsonObject color = item["color"];
+      byte color_r = color["r"];
+      byte color_g = color["g"];
+      byte color_b = color["b"];
+
+      byte startHour = item["startHour"];
+      byte startMinute = item["startMinute"];
+      byte endHour = item["endHour"];
+      byte endMinute = item["endMinute"];
+      byte inDuration = item["inDuration"];
+
+      waves[i] = wave{
+        .startHour = startHour,
+        .startMinute = startMinute,
+        .endHour = endHour,
+        .endMinute = endMinute,
+        .inDuration = inDuration,
+        .red = color_r,
+        .green = color_g,
+        .blue = color_b,
+      };
+
+      i++;
+    }
+    numWaves = i;
+
+    // save waves to EEPROM
+    EEPROM.put(0, numWaves);
+    EEPROM.put(1, waves);
+    boolean ok = EEPROM.commit();
+    Serial.println((ok) ? "EEPROM commit OK" : "EEPROM commit failed");
+
+    Serial.println("\nRecieved waves:");
+    printWaves();
+
+    server.send(200, "text/plain", "POST data received and parsed");
+  } else {
+    server.send(400, "text/plain", "Bad Request");
+  }
 }
-void handleGet() { server.send(200, "text/plain", "Hello BOI!"); }
+void handleGet() {
+  server.send(200, "text/plain", "Hello BOI!");
+}
 
 void setup() {
-    Serial.begin(9600);
+  Serial.begin(9600);
 
-    // set up wifi
-    WiFi.mode(WIFI_STA);
-    WiFi.begin(ssid, password);
+  // set up wifi
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(ssid, password);
 
-    while (WiFi.status() != WL_CONNECTED) {
-        delay(500);
-        Serial.print(".");
-    }
-    Serial.println("\n");
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("\n");
 
-    // set up server
-    server.on("/", HTTP_GET, handleGet);
-    server.on("/", HTTP_POST, handlePost);
-    server.begin();
-    Serial.print("IP: ");
-    Serial.println(WiFi.localIP());
+  // set up server
+  server.on("/", HTTP_GET, handleGet);
+  server.on("/", HTTP_POST, handlePost);
+  server.begin();
+  Serial.print("IP: ");
+  Serial.println(WiFi.localIP());
 
-    // set up time
-    timeClient.begin();
-    fetchNewTime();
-    int secsToNextTick = 60 - timeClient.getSeconds();
-    nextTickMillis = secsToNextTick * 1000;
+  // set up time
+  timeClient.begin();
+  fetchNewTime();
+  int secsToNextTick = 60 - timeClient.getSeconds();
 
-    // set up EEPROM
-    EEPROM.begin(MAX_WAVES * sizeof(wave) + 1); // + 1 for storing numWaves (byte)
+  // set up EEPROM
+  EEPROM.begin(MAX_WAVES * sizeof(wave) + 1);  // + 1 for storing numWaves (byte)
 
-    // get wave data from EEPROM
-    EEPROM.get(0, numWaves);
-    EEPROM.get(1, waves);
+  // get wave data from EEPROM
+  EEPROM.get(0, numWaves);
+  EEPROM.get(1, waves);
 
-    printWaves();
+  printWaves();
 }
 
 void loop() {
-    fetchNewTime();
-    tick();
-    // printTime(&currentTime);
-    server.handleClient();
-    delay(LOOPINTERVAL);
+  fetchNewTime();
+  server.handleClient();
+  delay(LOOPINTERVAL);
+  Serial.println(String(hour()) + ":" + String(minute()) + ":" + String(second()));
 
-    // find next wave i
-    // if it has started
-    //   get brightness
-    //   update LEDs
+  // find next wave i
+  // if it has started
+  //   get brightness
+  //   update LEDs
 }
 
 void printWaves() {
-    for (int j = 0; j < numWaves; j++) {
-        Serial.print("Wave ");
-        Serial.println(j + 1);
-        Serial.println(formatWave(&waves[j]));
-    }
+  for (int j = 0; j < numWaves; j++) {
+    Serial.print("Wave ");
+    Serial.println(j + 1);
+    Serial.println(formatWave(&waves[j]));
+  }
 }
 
-void tick() {
-    if (!isPassedMillis(nextTickMillis)) return;
-
-    // update intreval
-    nextTickMillis += TICKINTERVAL;
-    // update time
-    // Serial.println("tick");
-    goNextMin(&currentTime);
+String formatWave(struct wave *wavePtr) {
+  String waveInfo = "Start Time: " + String(wavePtr->startHour) + ":"
+                    + String(wavePtr->startMinute) + " - End Time: " + String(wavePtr->endHour) + ":" + String(wavePtr->endMinute) + ", Duration: " + String(wavePtr->inDuration) + "minutes, Color: (" + String(wavePtr->red) + "," + String(wavePtr->green) + "," + String(wavePtr->blue) + ")";
+  return waveInfo;
 }
+
 
 void fetchNewTime() {
-    // fetch at midnight
-    static struct time nextFetchTime = {.hour = 0, .minute = 0};
+  // fetch at midnight
+  static byte nextFetchHour;
+  if (hour() != nextFetchHour) return;
 
-    if (timeDiff(&currentTime, &nextFetchTime) != 0)
-        return;
-    // update intreval
-    // fetch every 12 hours
-    nextFetchTime.hour = (nextFetchTime.hour + 12) % 24;
+  // update intreval
+  // fetch every 12 hours
+  nextFetchHour = 24 % (nextFetchHour + 12);
 
-    // fetch and set new time
-    Serial.println("fetch new time");
-    timeClient.update();
-    // currentTime.day = timeClient.getDay();
-    currentTime.hour = timeClient.getHours();
-    currentTime.minute = timeClient.getMinutes();
-    nextTickMillis = millis() + MILLISINMIN;
-}
-
-void printTime(struct time *timep) {
-    char s[20];
-    formatTime(s, timep);
-    Serial.println(s);
+  // fetch and set new time
+  Serial.println("fetch new time");
+  timeClient.update();
+  setTime(timeClient.getEpochTime());
 }
 
 void updateLEDs() {
-    static int nextWaveIndex = findNextWaveIndex(waves, numWaves, &currentTime);
-    static struct time *nextWaveStartTimep = &waves[nextWaveIndex].startTime;
-    bool currentlyInWave = false;
-    bool isFullBright = false;
+  static int nextWaveIndex = findNextWaveIndex(waves, numWaves);
+  static struct wave *nextWavep = &waves[nextWaveIndex];
+  bool currentlyInWave = false;
+  bool isFullBright = false;
 
-    if (!currentlyInWave) {
-        if (timeDiff(&currentTime, nextWaveStartTimep) != 0)
-            return;
-        // reached next wave
-        currentlyInWave = true;
-        if (++nextWaveIndex == numWaves)
-            nextWaveIndex = 0;
-        nextWaveStartTimep = &waves[nextWaveIndex].startTime;
-    }
-    // update leds
-    if (!isFullBright) {
-        // update brightness
-    }
+  if (!currentlyInWave) {
+    if (nextWavep->startHour != hour() || nextWavep->startMinute != minute())
+      return;
+    // reached next wave
+    currentlyInWave = true;
+    if (++nextWaveIndex == numWaves)
+      nextWaveIndex = 0;
+    nextWavep = &waves[nextWaveIndex];
+  }
+  // update leds
+  if (!isFullBright) {
+    // update brightness
+  }
 
-    // TODO exit wave
+  // TODO exit wave
 }
 
-bool isPassedMillis(unsigned long targetMillis) {
-  unsigned long currentMillis = millis();
-    if (currentMillis + TICKINTERVAL < currentMillis)
-        // warped
-        return false;
-    if (targetMillis > currentMillis)
-        return false;
-    return true;
+int findNextWaveIndex(struct wave waves[], int totalWaves) {
+  int waveIndex = 0;
+  struct wave *wavep = &waves[0];
+  // end of wave is before current time
+  while (wavep->endHour < hour() || (wavep->endHour == hour() || wavep->endMinute < minute())) {
+    wavep = &waves[++waveIndex];
+  }
+  return waveIndex;
 }
