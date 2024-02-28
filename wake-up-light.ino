@@ -22,6 +22,7 @@ NTPClient timeClient(ntpUDP, "pool.ntp.org", utcOffsetInSeconds);
 
 ESP8266WebServer server(80);
 
+
 struct wave {
   byte startHour;
   byte startMinute;
@@ -32,6 +33,16 @@ struct wave {
   byte green;
   byte blue;
 };
+
+struct {
+  byte r;
+  byte g;
+  byte b;
+  byte brightness;
+  wave *currentWave;
+} ledStatus;
+
+
 struct wave waves[MAX_WAVES];
 
 byte numWaves = 0;
@@ -189,23 +200,36 @@ void updateLEDs() {
   static int nextWaveIndex = findNextWaveIndex(waves, numWaves);
   static struct wave *nextWavep = &waves[nextWaveIndex];
   bool currentlyInWave = false;
-  bool isFullBright = false;
 
   if (!currentlyInWave) {
     if (nextWavep->startHour != hour() || nextWavep->startMinute != minute())
       return;
     // reached next wave
     currentlyInWave = true;
+
+    ledStatus.currentWave = &waves[nextWaveIndex];
+    ledStatus.g = waves[nextWaveIndex].green;
+    ledStatus.r = waves[nextWaveIndex].red;
+    ledStatus.b = waves[nextWaveIndex].blue;
+    ledStatus.brightness = 0;
+
     if (++nextWaveIndex == numWaves)
       nextWaveIndex = 0;
     nextWavep = &waves[nextWaveIndex];
   }
-  // update leds
-  if (!isFullBright) {
+  if (ledStatus.brightness != 100) {
     // update brightness
+    int start = ledStatus.currentWave->startHour * 60 + ledStatus.currentWave->startMinute;
+    int dur = ledStatus.currentWave->inDuration;
+    int current = hour() * 60 + minute();
+    int brightness = 100 * (current - start) / dur;
   }
+  // TODO update leds
 
-  // TODO exit wave
+  // exit wave
+  if (hour() > ledStatus.currentWave->endHour || (hour() == ledStatus.currentWave->endHour && minute() > ledStatus.currentWave->endMinute )){
+    currentlyInWave = false;
+  }
 }
 
 int findNextWaveIndex(struct wave waves[], int totalWaves) {
