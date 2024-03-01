@@ -5,16 +5,20 @@
 #include <WiFiUdp.h>
 #include <ESP_EEPROM.h>
 #include <TimeLib.h>
-
-
-const char *ssid = "SkyRabbit";
-const char *password = "20090602";
+#include <Adafruit_NeoPixel.h>
+#include "credentials.h"
 
 // const long utcOffsetInSeconds = 3600;
 const long utcOffsetInSeconds = 0;
 
 #define MAX_WAVES 16       // max num of waves
 #define LOOPINTERVAL 1000  // delay between loops
+
+#define LED_PIN 3
+#define LED_COUNT 5
+
+// set up LED strip
+Adafruit_NeoPixel strip(LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800);
 
 // Define NTP Client to get time
 WiFiUDP ntpUDP;
@@ -39,8 +43,9 @@ struct {
   byte g;
   byte b;
   byte brightness;
-  wave *currentWave;
-} ledStatus;
+  byte nextWaveIndex;
+  bool currentlyInWave;
+} status;
 
 
 struct wave waves[MAX_WAVES];
@@ -110,6 +115,9 @@ void handlePost() {
     Serial.println("\nRecieved waves:");
     printWaves();
 
+    status.nextWaveIndex = findNextWaveIndex();
+    status.currentlyInWave = false;
+
     server.send(200, "text/plain", "POST data received and parsed");
   } else {
     server.send(400, "text/plain", "Bad Request");
@@ -126,11 +134,12 @@ void setup() {
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, password);
 
+  Serial.print("Connecting");
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.print(".");
   }
-  Serial.println("\n");
+  Serial.println("\nConnected!");
 
   // set up server
   server.on("/", HTTP_GET, handleGet);
@@ -144,6 +153,12 @@ void setup() {
   fetchNewTime();
   int secsToNextTick = 60 - timeClient.getSeconds();
 
+
+  // set up LED
+  strip.begin();
+  strip.clear();
+  strip.show();
+
   // set up EEPROM
   EEPROM.begin(MAX_WAVES * sizeof(wave) + 1);  // + 1 for storing numWaves (byte)
 
@@ -152,18 +167,16 @@ void setup() {
   EEPROM.get(1, waves);
 
   printWaves();
+  status.nextWaveIndex = findNextWaveIndex();
+  Serial.printf("waves: %d next: %d\n", numWaves, status.nextWaveIndex);
 }
 
 void loop() {
   fetchNewTime();
   server.handleClient();
+  updateLEDs();
   delay(LOOPINTERVAL);
-  Serial.println(String(hour()) + ":" + String(minute()) + ":" + String(second()));
-
-  // find next wave i
-  // if it has started
-  //   get brightness
-  //   update LEDs
+  // Serial.println(String(hour()) + ":" + String(minute()) + ":" + String(second()));
 }
 
 void printWaves() {
@@ -182,6 +195,7 @@ String formatWave(struct wave *wavePtr) {
 
 
 void fetchNewTime() {
+
   // fetch at midnight
   static byte nextFetchHour;
   if (hour() != nextFetchHour) return;
@@ -192,52 +206,76 @@ void fetchNewTime() {
 
   // fetch and set new time
   Serial.println("fetch new time");
+
   timeClient.update();
+
   setTime(timeClient.getEpochTime());
 }
 
 void updateLEDs() {
-  static int nextWaveIndex = findNextWaveIndex(waves, numWaves);
-  static struct wave *nextWavep = &waves[nextWaveIndex];
-  bool currentlyInWave = false;
+  struct wave *nextWavep = &waves[status.nextWaveIndex];
 
-  if (!currentlyInWave) {
+  if (!status.currentlyInWave) {
+    // Serial.printf("i: %d, min: %d\n", status.nextWaveIndex,nextWavep->startMinute);
     if (nextWavep->startHour != hour() || nextWavep->startMinute != minute())
       return;
     // reached next wave
-    currentlyInWave = true;
+    Serial.println("wave start");
+    status.currentlyInWave = true;
 
-    ledStatus.currentWave = &waves[nextWaveIndex];
-    ledStatus.g = waves[nextWaveIndex].green;
-    ledStatus.r = waves[nextWaveIndex].red;
-    ledStatus.b = waves[nextWaveIndex].blue;
-    ledStatus.brightness = 0;
+    status.g = waves[status.nextWaveIndex].green;
+    status.r = waves[status.nextWaveIndex].red;
+    status.b = waves[status.nextWaveIndex].blue;
+    status.brightness = 0;
+    showLEDs();
 
-    if (++nextWaveIndex == numWaves)
-      nextWaveIndex = 0;
-    nextWavep = &waves[nextWaveIndex];
+
+    if (++status.nextWaveIndex == numWaves)
+      status.nextWaveIndex = 0;
+    nextWavep = &waves[status.nextWaveIndex];
   }
-  if (ledStatus.brightness != 100) {
+
+  byte currentWaveIndex = status.nextWaveIndex - 1 % numWaves;
+  if (status.brightness != 255) {
     // update brightness
-    int start = ledStatus.currentWave->startHour * 60 + ledStatus.currentWave->startMinute;
-    int dur = ledStatus.currentWave->inDuration;
-    int current = hour() * 60 + minute();
-    int brightness = 100 * (current - start) / dur;
+    int start = waves[currentWaveIndex].startHour * 60 + waves[currentWaveIndex].startMinute;
+    int dur = waves[currentWaveIndex].inDuration;
+    float current = hour() * 60 + minute() + second() / 60.0;
+    status.brightness = 255 * (current - start) / dur;
+
+    showLEDs();
   }
-  // TODO update leds
 
   // exit wave
-  if (hour() > ledStatus.currentWave->endHour || (hour() == ledStatus.currentWave->endHour && minute() > ledStatus.currentWave->endMinute )){
-    currentlyInWave = false;
+  if (hour() > waves[currentWaveIndex].endHour || (hour() == waves[currentWaveIndex].endHour && minute() > waves[currentWaveIndex].endMinute)) {
+    status.brightness = 0;
+    showLEDs();
+    status.currentlyInWave = false;
   }
 }
 
-int findNextWaveIndex(struct wave waves[], int totalWaves) {
+void showLEDs() {
+  for (int i = 0; i < LED_COUNT; i++) {
+    strip.setPixelColor(i, status.r, status.g, status.b);
+    strip.setBrightness(status.brightness);
+  }
+  strip.show();  // Send the updated pixel colors to the hardware.
+}
+
+int findNextWaveIndex() {
   int waveIndex = 0;
   struct wave *wavep = &waves[0];
   // end of wave is before current time
-  while (wavep->endHour < hour() || (wavep->endHour == hour() || wavep->endMinute < minute())) {
+  while (timeCmp(wavep->endHour, wavep->endMinute) < 0 && waveIndex < numWaves) {
     wavep = &waves[++waveIndex];
   }
-  return waveIndex;
+  return waveIndex % numWaves;
+}
+
+int timeCmp(byte h, byte m) {
+  // compare now time with h:m
+  // positive if h:m later in the same day
+  int t = h * 60 + m;
+  int now = hour() * 60 + minute();
+  return t - now;
 }
