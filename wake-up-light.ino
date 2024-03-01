@@ -85,7 +85,7 @@ void handleColorPreview() {
 
     server.send(200, "text/plain", "POST data received and parsed");
   } else {
-  server.send(400, "text/plain", "Bad Request");
+    server.send(400, "text/plain", "Bad Request");
   }
 }
 
@@ -150,6 +150,11 @@ void handlePostWaves() {
     status.currentlyInWave = false;
 
     server.send(200, "text/plain", "POST data received and parsed");
+
+    // flash green
+    showLEDs(100, 255, 100, 127);
+    delay(1000);
+    showLEDs(status.r, status.g, status.b, status.brightness);
   } else {
     server.send(400, "text/plain", "Bad Request");
   }
@@ -158,14 +163,9 @@ void handleGet() {
   server.send(200, "text/plain", "Hello BOI!");
   Serial.println("Got GET request");
 
-  strip.setBrightness(127);
-  // flash green
-  for (int i = 0; i < LED_COUNT; i++) {
-    strip.setPixelColor(i, 100,255,100);
-  }
-  strip.show();
+  showLEDs(100, 255, 100, 127);
   delay(1000);
-  showLEDs();
+  showLEDs(status.r, status.g, status.b, status.brightness);
 }
 
 void setup() {
@@ -205,12 +205,12 @@ void setup() {
   EEPROM.begin(MAX_WAVES * sizeof(wave) + 1);  // + 1 for storing numWaves (byte)
 
   // get wave data from EEPROM
-  // EEPROM.get(0, numWaves);
-  // EEPROM.get(1, waves);
+  EEPROM.get(0, numWaves);
+  EEPROM.get(1, waves);
 
-  // printWaves();
-  // status.nextWaveIndex = findNextWaveIndex();
-  // Serial.printf("waves: %d next: %d\n", numWaves, status.nextWaveIndex);
+  printWaves();
+  status.nextWaveIndex = findNextWaveIndex();
+  Serial.printf("waves: %d next: %d\n", numWaves, status.nextWaveIndex);
 }
 
 void loop() {
@@ -269,7 +269,7 @@ void updateLEDs() {
     status.r = waves[status.nextWaveIndex].red;
     status.b = waves[status.nextWaveIndex].blue;
     status.brightness = 0;
-    showLEDs();
+    showLEDs(status.r, status.g, status.b, status.brightness);
 
 
     if (++status.nextWaveIndex == numWaves)
@@ -285,21 +285,21 @@ void updateLEDs() {
     float current = hour() * 60 + minute() + second() / 60.0;
     status.brightness = 255 * (current - start) / dur;
 
-    showLEDs();
+    showLEDs(status.r, status.g, status.b, status.brightness);
   }
 
   // exit wave
   if (hour() > waves[currentWaveIndex].endHour || (hour() == waves[currentWaveIndex].endHour && minute() > waves[currentWaveIndex].endMinute)) {
     status.brightness = 0;
-    showLEDs();
+    showLEDs(status.r, status.g, status.b, status.brightness);
     status.currentlyInWave = false;
   }
 }
 
-void showLEDs() {
-  strip.setBrightness(status.brightness);
+void showLEDs(byte r, byte g, byte b, byte brightness) {
+  strip.setBrightness(brightness);
   for (int i = 0; i < LED_COUNT; i++) {
-    strip.setPixelColor(i, status.r, status.g, status.b);
+    strip.setPixelColor(i, r, g, b);
   }
   strip.show();  // Send the updated pixel colors to the hardware.
 }
@@ -310,15 +310,10 @@ bool showPreview() {
   }
 
   if (--previewStatus.timeout == 0) {
-    showLEDs();
+    showLEDs(status.r, status.g, status.b, status.brightness);
     return false;
   }
-
-  strip.setBrightness(255);
-  for (int i = 0; i < LED_COUNT; i++) {
-    strip.setPixelColor(i, previewStatus.r, previewStatus.g, previewStatus.b);
-  }
-  strip.show();
+  showLEDs(previewStatus.r, previewStatus.g, previewStatus.b, 255);
   return true;
 }
 
