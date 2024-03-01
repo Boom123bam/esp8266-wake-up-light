@@ -17,6 +17,8 @@ const long utcOffsetInSeconds = 0;
 #define LED_PIN 3
 #define LED_COUNT 5
 
+#define PREVIEW_TIMEOUT 100
+
 // set up LED strip
 Adafruit_NeoPixel strip(LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800);
 
@@ -47,6 +49,12 @@ struct {
   bool currentlyInWave;
 } status;
 
+struct {
+  byte r;
+  byte g;
+  byte b;
+  byte timeout;
+} previewStatus;
 
 struct wave waves[MAX_WAVES];
 
@@ -57,9 +65,32 @@ void updateLEDs();
 void updateCurrentOrNextWaveIndex();
 String formatWave(struct wave *wavePtr);
 
+void handleColorPreview() {
+  Serial.println("Got post color request!");
+  if (server.hasArg("plain")) {
+    String input = server.arg("plain");
+    JsonDocument doc;
 
-void handlePost() {
-  Serial.println("Got post request!");
+    DeserializationError error = deserializeJson(doc, input);
+
+    if (error) {
+      Serial.print("deserializeJson() failed: ");
+      Serial.println(error.c_str());
+      return;
+    }
+    previewStatus.r = doc["r"];
+    previewStatus.g = doc["g"];
+    previewStatus.b = doc["b"];
+    previewStatus.timeout = PREVIEW_TIMEOUT;
+
+    server.send(200, "text/plain", "POST data received and parsed");
+  } else {
+  server.send(400, "text/plain", "Bad Request");
+  }
+}
+
+void handlePostWaves() {
+  Serial.println("Got post waves request!");
   if (server.hasArg("plain")) {
     // Get the JSON payload from the request
     String input = server.arg("plain");
@@ -125,6 +156,16 @@ void handlePost() {
 }
 void handleGet() {
   server.send(200, "text/plain", "Hello BOI!");
+  Serial.println("Got GET request");
+
+  strip.setBrightness(127);
+  // flash green
+  for (int i = 0; i < LED_COUNT; i++) {
+    strip.setPixelColor(i, 100,255,100);
+  }
+  strip.show();
+  delay(1000);
+  showLEDs();
 }
 
 void setup() {
@@ -143,7 +184,8 @@ void setup() {
 
   // set up server
   server.on("/", HTTP_GET, handleGet);
-  server.on("/", HTTP_POST, handlePost);
+  server.on("/", HTTP_POST, handlePostWaves);
+  server.on("/color", HTTP_POST, handleColorPreview);
   server.begin();
   Serial.print("IP: ");
   Serial.println(WiFi.localIP());
@@ -163,19 +205,19 @@ void setup() {
   EEPROM.begin(MAX_WAVES * sizeof(wave) + 1);  // + 1 for storing numWaves (byte)
 
   // get wave data from EEPROM
-  EEPROM.get(0, numWaves);
-  EEPROM.get(1, waves);
+  // EEPROM.get(0, numWaves);
+  // EEPROM.get(1, waves);
 
-  printWaves();
-  status.nextWaveIndex = findNextWaveIndex();
-  Serial.printf("waves: %d next: %d\n", numWaves, status.nextWaveIndex);
+  // printWaves();
+  // status.nextWaveIndex = findNextWaveIndex();
+  // Serial.printf("waves: %d next: %d\n", numWaves, status.nextWaveIndex);
 }
 
 void loop() {
   fetchNewTime();
   server.handleClient();
   updateLEDs();
-  delay(LOOPINTERVAL);
+  delay(showPreview() ? 100 : LOOPINTERVAL);
   // Serial.println(String(hour()) + ":" + String(minute()) + ":" + String(second()));
 }
 
@@ -255,11 +297,29 @@ void updateLEDs() {
 }
 
 void showLEDs() {
+  strip.setBrightness(status.brightness);
   for (int i = 0; i < LED_COUNT; i++) {
     strip.setPixelColor(i, status.r, status.g, status.b);
-    strip.setBrightness(status.brightness);
   }
   strip.show();  // Send the updated pixel colors to the hardware.
+}
+
+bool showPreview() {
+  if (previewStatus.timeout == 0) {
+    return false;
+  }
+
+  if (--previewStatus.timeout == 0) {
+    showLEDs();
+    return false;
+  }
+
+  strip.setBrightness(255);
+  for (int i = 0; i < LED_COUNT; i++) {
+    strip.setPixelColor(i, previewStatus.r, previewStatus.g, previewStatus.b);
+  }
+  strip.show();
+  return true;
 }
 
 int findNextWaveIndex() {
