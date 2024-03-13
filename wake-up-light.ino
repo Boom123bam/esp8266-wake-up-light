@@ -148,6 +148,7 @@ void handlePostWaves() {
 
     status.nextWaveIndex = findNextWaveIndex();
     status.currentlyInWave = false;
+    status.brightness = 0;
 
     server.send(200, "text/plain", "POST data received and parsed");
 
@@ -252,6 +253,7 @@ void fetchNewTime() {
   timeClient.update();
 
   setTime(timeClient.getEpochTime());
+  Serial.println(String(hour()) + ":" + String(minute()) + ":" + String(second()));
 }
 
 void updateLEDs() {
@@ -277,7 +279,7 @@ void updateLEDs() {
     nextWavep = &waves[status.nextWaveIndex];
   }
 
-  byte currentWaveIndex = status.nextWaveIndex - 1 % numWaves;
+  byte currentWaveIndex = status.nextWaveIndex ? (status.nextWaveIndex - 1) % numWaves : numWaves - 1;
   if (status.brightness != 255) {
     // update brightness
     int start = waves[currentWaveIndex].startHour * 60 + waves[currentWaveIndex].startMinute;
@@ -293,6 +295,7 @@ void updateLEDs() {
     status.brightness = 0;
     showLEDs(status.r, status.g, status.b, status.brightness);
     status.currentlyInWave = false;
+    Serial.println("wave end");
   }
 }
 
