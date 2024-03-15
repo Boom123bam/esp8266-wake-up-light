@@ -17,6 +17,8 @@ const long utcOffsetInSeconds = 0;
 #define LED_PIN 3
 #define LED_COUNT 5
 
+#define BUTTON_PIN 4
+
 #define PREVIEW_TIMEOUT 100
 
 // set up LED strip
@@ -171,6 +173,7 @@ void handleGet() {
 
 void setup() {
   Serial.begin(9600);
+  pinMode(BUTTON_PIN, INPUT_PULLUP);
 
   // set up wifi
   WiFi.mode(WIFI_STA);
@@ -290,8 +293,10 @@ void updateLEDs() {
     showLEDs(status.r, status.g, status.b, status.brightness);
   }
 
+  bool skipButtonPressed = !digitalRead(BUTTON_PIN);
+
   // exit wave
-  if (hour() > waves[currentWaveIndex].endHour || (hour() == waves[currentWaveIndex].endHour && minute() > waves[currentWaveIndex].endMinute)) {
+  if (skipButtonPressed || hour() > waves[currentWaveIndex].endHour || (hour() == waves[currentWaveIndex].endHour && minute() > waves[currentWaveIndex].endMinute)) {
     status.brightness = 0;
     showLEDs(status.r, status.g, status.b, status.brightness);
     status.currentlyInWave = false;
